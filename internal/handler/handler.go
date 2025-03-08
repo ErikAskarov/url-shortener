@@ -67,8 +67,23 @@ func (h *Handler) CreateShortUrl(w http.ResponseWriter, r *http.Request) {
 	parseTime, err := parseStringToDuration(req.Expires)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 	if err := h.redis.SaveUrl(r.Context(), req.Url, code, parseTime); err != nil {
-
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		return
 	}
+	resp := models.ShortUrlResponse{Url: "https://localhost:8080/" + code}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *Handler) RedirectUrl(w http.ResponseWriter, r *http.Request) {
+	code := r.URL.Path[1:]
+	url, err := h.redis.GetUrl(r.Context(), code)
+	if err != nil {
+		http.Error(w, "Not found", http.StatusNotFound)
+		return
+	}
+	http.Redirect(w, r, url, http.StatusMovedPermanently)
 }
